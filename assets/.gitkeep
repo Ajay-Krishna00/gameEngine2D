@@ -1,0 +1,2 @@
+# Runtime assets (shaders, textures, scenes) live here.
+# CMake copies this whole folder next to the built .exe after each build.

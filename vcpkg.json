@@ -1,0 +1,11 @@
+{
+  "name": "engine2d",
+  "version": "0.1.0",
+  "description": "A custom 2D game engine built from scratch in C++ (SDL2 + OpenGL).",
+  "dependencies": [
+    "sdl2",
+    "glad",
+    "glm",
+    "stb"
+  ]
+}

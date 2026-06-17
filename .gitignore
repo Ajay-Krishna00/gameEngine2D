@@ -1,0 +1,17 @@
+# build output
+build/
+out/
+
+# vcpkg manifest install tree (deps are restored from vcpkg.json)
+vcpkg_installed/
+
+# IDE / OS noise
+.vs/
+*.user
+Thumbs.db
+.DS_Store
+
+# CMake bits that may land in source dir
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
