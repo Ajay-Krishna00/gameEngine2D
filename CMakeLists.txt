@@ -17,6 +17,8 @@ add_executable(engine2d
     src/main.cpp
     src/core/Window.cpp
     src/core/Application.cpp
+    src/renderer/Shader.cpp
+    src/renderer/Texture.cpp
 )
 
 target_include_directories(engine2d PRIVATE
