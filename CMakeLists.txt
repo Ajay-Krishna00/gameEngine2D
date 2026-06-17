@@ -19,6 +19,8 @@ add_executable(engine2d
     src/core/Application.cpp
     src/renderer/Shader.cpp
     src/renderer/Texture.cpp
+    src/renderer/Camera2D.cpp
+    src/renderer/SpriteBatch.cpp
 )
 
 target_include_directories(engine2d PRIVATE
