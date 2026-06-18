@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "ecs/Components.h"
 #include "ecs/Systems.h"
+#include <cstdio>
 
 namespace {
 // Tiny deterministic LCG so the scene is the same every run (no <random> needed).
@@ -20,7 +21,7 @@ constexpr float WT = 30.0f;    // wall thickness (half)
 } // namespace
 
 Game::Game() {
-    m_tex.loadFromFile("assets/textures/sprite.png");
+    m_tex = &m_resources.texture("assets/textures/sprite.png");
     Rng rng;
 
     auto spawnWall = [&](glm::vec2 pos, glm::vec2 half) {
@@ -71,6 +72,21 @@ void Game::onUpdate(float dt) {
 void Game::onRender() {
     m_camera.setViewport((float)window().width(), (float)window().height());
     m_batch.begin(m_camera.viewProjection());
-    renderSystem(m_reg, m_batch, m_tex);
+    renderSystem(m_reg, m_batch, *m_tex);
     m_batch.end();
+
+    updateTitle();
+}
+
+void Game::updateTitle() {
+    // Throttle: refresh the title ~4x/second, not every frame.
+    if (++m_titleTimer < 15) return;
+    m_titleTimer = 0;
+
+    char buf[256];
+    std::snprintf(buf, sizeof(buf),
+        "engine2d  |  %.0f FPS  |  entities %zu  |  draw calls %d  |  quads %d  |  col-checks %d / resolved %d",
+        fps(), m_reg.aliveCount(), m_batch.drawCalls(), m_batch.quadsDrawn(),
+        m_physics.narrowChecks(), m_physics.resolved());
+    window().setTitle(buf);
 }

@@ -1,0 +1,14 @@
+# Normalize line endings: store LF in the repo, check out native on Windows.
+* text=auto
+
+*.cpp text
+*.h   text
+*.vert text
+*.frag text
+*.md  text
+*.json text
+*.cmake text
+CMakeLists.txt text
+
+# Binary assets — never touch.
+*.png binary

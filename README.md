@@ -2,33 +2,49 @@
 
 A 2D game engine written from scratch in **C++17**, on top of **SDL2 + OpenGL 3.3**.
 No game-engine framework underneath — the window, render pipeline, batch renderer,
-camera, and (in later phases) ECS and physics are all hand-built. It's a learning /
-portfolio project: every subsystem is small enough to read in one sitting and explain
-out loud.
+camera, ECS, input, and physics are all hand-built. It's a learning / portfolio
+project: every subsystem is small enough to read in one sitting and explain out loud.
 
-> **Status:** Phases 1–3 are implemented (window + game loop, the OpenGL pipeline,
-> sprite batching + 2D camera). Phases 4–7 (ECS, input, physics, polish) are designed
-> and fully specced in [`BUILD_GUIDE.md`](BUILD_GUIDE.md) but not yet wired in.
+> **Status:** Phases 1–7 implemented. The demo is a walled arena with a WASD-driven,
+> wall-collidable player and ~580 dynamic crates bouncing off the walls and each
+> other — all entities, movement, rendering, and collision run through the engine's
+> own ECS, batch renderer, and spatial-grid physics. Live stats (FPS, entity count,
+> draw calls, quads, collision checks) are shown in the window title bar.
 
 ## What's in the box
 
 | Layer | Pieces | Status |
 |---|---|---|
-| **Core** | `Window` (SDL2 window + GL context), `Application` (fixed-timestep loop), `Time` (high-res clock) | ✅ |
-| **Renderer** | `Shader`, `Texture` (via stb_image), `Camera2D` (orthographic pan/zoom), `SpriteBatch` (one draw call per texture run) | ✅ |
-| **ECS** | sparse-set `Registry`, `ComponentPool`, generational entity handles | 📐 specced |
-| **Physics** | AABB collision + spatial-grid broadphase, fixed-step response | 📐 specced |
+| **Core** | `Window` (SDL2 window + GL context), `Application` (fixed-timestep loop + FPS), `Time` (high-res clock), `Input` (keyboard/mouse polling) | ✅ |
+| **Renderer** | `Shader`, `Texture` (via stb_image), `Camera2D` (orthographic pan/zoom + screen→world), `SpriteBatch` (one draw call per texture run), `ResourceManager` (cached textures/shaders) | ✅ |
+| **ECS** | sparse-set `Registry`, `ComponentPool`, generational entity handles, variadic `view<...>()` iteration | ✅ |
+| **Physics** | AABB collision, uniform spatial-grid broadphase (O(n) vs O(n²)), penetration-resolution response, run in the fixed step | ✅ |
 
 ### Design highlights
 
 - **Fixed-timestep game loop with an accumulator** — simulation advances in constant
-  `1/60s` steps independent of framerate, so updates stay deterministic and stable;
-  rendering happens once per frame (see `core/Application.cpp`).
+  `1/60s` steps independent of framerate, so updates and physics stay deterministic;
+  rendering happens once per frame (`core/Application.cpp`).
 - **Batch renderer** — accumulates quads into one big dynamic vertex buffer and submits
   a run of same-textured sprites in a single `glDrawElements` call, flushing only when
   the texture changes or the buffer fills (`renderer/SpriteBatch.cpp`).
-- **Orthographic 2D camera** — `view*projection` built with `glm::ortho`, supporting
-  position + zoom (`renderer/Camera2D.cpp`).
+- **Sparse-set ECS** — components live in packed, contiguous arrays for cache-friendly
+  iteration; an entity-index→dense-position sparse map gives O(1) add/remove (swap-and-pop)
+  and lookup; 64-bit handles carry a generation counter to detect stale references
+  (`ecs/`).
+- **Spatial-grid physics** — colliders are bucketed into a uniform grid by cell, and only
+  bodies in the same 3×3 cell neighbourhood are pair-tested, turning broadphase from
+  O(n²) into roughly O(n). Penetration is resolved along the minimum-translation axis
+  (`physics/PhysicsSystem.cpp`).
+- **Orthographic 2D camera** — `view*projection` built with `glm::ortho`, with position,
+  zoom, and screen→world unprojection (`renderer/Camera2D.cpp`).
+
+## Controls
+
+| Key | Action |
+|---|---|
+| `W` `A` `S` `D` / arrows | move the player (camera follows) |
+| `Esc` | quit |
 
 ## Tech stack
 
@@ -47,11 +63,15 @@ engine2d/
 ├─ CMakePresets.json     wires vcpkg + Ninja
 ├─ vcpkg.json            dependency manifest (auto-installed)
 ├─ assets/
-│  └─ shaders/           sprite.vert / sprite.frag
+│  ├─ shaders/           sprite.vert / sprite.frag
+│  └─ textures/          sprite.png
 └─ src/
    ├─ main.cpp           entry point
-   ├─ core/              Window, Application, Time
-   └─ renderer/          Shader, Texture, Camera2D, SpriteBatch
+   ├─ Game.{h,cpp}       the demo: arena + player + crates wired to the engine
+   ├─ core/              Window, Application, Time, Input
+   ├─ renderer/          Shader, Texture, Camera2D, SpriteBatch, ResourceManager
+   ├─ ecs/               Entity, ComponentPool, Registry, Components, Systems
+   └─ physics/           PhysicsSystem (AABB + spatial grid)
 ```
 
 ## Building & running
@@ -69,22 +89,43 @@ cmake --build build
 .\build\engine2d.exe
 ```
 
-✅ **Success looks like:** a 1280×720 window filled cornflower blue, with the terminal
-printing your OpenGL version and GPU. Press `Esc` or close the window to quit.
+✅ **Success looks like:** a window showing a grey-walled arena full of coloured crates
+bouncing around; drive the yellow player box with WASD and shove crates into the walls.
+The title bar reports live FPS / entity / draw-call / collision counts. Press `Esc` to quit.
 
 > **Rule of thumb:** every `.cpp` you add under `src/` must be listed in the
 > `add_executable(engine2d ...)` block in `CMakeLists.txt`, then re-configure. Headers
 > are pulled in via `#include` and are not listed.
 
-## Roadmap
+## How it fits together
 
-The phased build plan — with full reference implementations for the remaining phases —
-is in [`BUILD_GUIDE.md`](BUILD_GUIDE.md):
+```
+main → Game : Application
+                │  fixed 1/60s step:
+                │    playerControlSystem(reg, input)   // WASD → Velocity
+                │    movementSystem(reg, dt)           // Velocity → Transform
+                │    physics.step(reg)                 // AABB + spatial grid resolve
+                │  render:
+                │    camera.viewProjection()
+                │    renderSystem(reg, batch, tex)     // Transform+Sprite → SpriteBatch
+                ▼
+        Window (SDL2 + OpenGL context)
+```
+
+## Build phases
+
+The phased build plan and full reference implementations are in
+[`BUILD_GUIDE.md`](BUILD_GUIDE.md). All seven phases are now implemented:
 
 1. ✅ **Phase 1 / 1.5** — window, game loop, refactor into Window/Application/Time
 2. ✅ **Phase 2** — shaders, textures, the modern OpenGL pipeline
 3. ✅ **Phase 3** — sprite batching + 2D camera
-4. 📐 **Phase 4** — sparse-set ECS (entities, components, systems)
-5. 📐 **Phase 5** — input + a playable, controllable sprite
-6. 📐 **Phase 6** — 2D physics: AABB collision + spatial-grid broadphase
-7. 📐 **Phase 7** — polish: Dear ImGui debug panel, a demo game, asset manager
+4. ✅ **Phase 4** — sparse-set ECS (entities, components, systems)
+5. ✅ **Phase 5** — input + a playable, camera-followed player
+6. ✅ **Phase 6** — 2D physics: AABB collision + spatial-grid broadphase + resolution
+7. ✅ **Phase 7** — polish: cached resource manager + live in-title performance HUD
+
+### Possible next steps
+
+Dear ImGui debug/editor panel, a JSON scene format (`nlohmann-json`), a texture atlas
+for cross-texture batching, text/HUD rendering (`stb_truetype`), and audio (SDL_mixer).

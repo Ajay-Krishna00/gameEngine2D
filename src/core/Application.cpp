@@ -15,6 +15,15 @@ int Application::run() {
         if (frameTime > 0.25) frameTime = 0.25; // avoid spiral-of-death
         accumulator += frameTime;
 
+        // smoothed FPS, recomputed about twice a second
+        m_fpsAccum += frameTime;
+        ++m_fpsFrames;
+        if (m_fpsAccum >= 0.5) {
+            m_fps = static_cast<float>(m_fpsFrames / m_fpsAccum);
+            m_fpsAccum = 0.0;
+            m_fpsFrames = 0;
+        }
+
         pollEvents();
         m_input.update();   // snapshot keyboard/mouse for this frame
 
