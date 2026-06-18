@@ -22,6 +22,7 @@ add_executable(engine2d
     src/renderer/Texture.cpp
     src/renderer/Camera2D.cpp
     src/renderer/SpriteBatch.cpp
+    src/physics/PhysicsSystem.cpp
 )
 
 target_include_directories(engine2d PRIVATE
