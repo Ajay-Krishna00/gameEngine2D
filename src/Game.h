@@ -16,4 +16,5 @@ private:
     SpriteBatch m_batch;          // constructed AFTER Application's Window => GL is ready
     Camera2D    m_camera{1280, 720};
     Texture     m_tex;
+    Entity      m_player = NULL_ENTITY;
 };

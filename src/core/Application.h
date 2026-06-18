@@ -1,6 +1,7 @@
 #pragma once
 #include "core/Window.h"
 #include "core/Time.h"
+#include "core/Input.h"
 
 // Base engine application: owns the window + the fixed-timestep loop.
 // A game subclasses this and overrides onUpdate()/onRender().
@@ -15,9 +16,11 @@ protected:
     virtual void onRender() {}          // draw a frame
 
     Window& window() { return m_window; }
+    Input&  input()  { return m_input; }
 
 private:
     Window m_window;
+    Input  m_input;
     bool   m_running = true;
     const double FIXED_DT = 1.0 / 60.0;
 

@@ -16,6 +16,7 @@ int Application::run() {
         accumulator += frameTime;
 
         pollEvents();
+        m_input.update();   // snapshot keyboard/mouse for this frame
 
         while (accumulator >= FIXED_DT) {
             onUpdate(static_cast<float>(FIXED_DT));
