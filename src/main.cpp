@@ -1,5 +1,5 @@
-#include "core/Application.h"
+#include "Game.h"
 int main(int, char**) {
-    Application app;
-    return app.run();
+    Game game;
+    return game.run();
 }

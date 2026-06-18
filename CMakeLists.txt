@@ -15,6 +15,7 @@ find_path(STB_INCLUDE_DIRS "stb_image.h")   # stb is header-only
 # As you add files in later phases, list them here.
 add_executable(engine2d
     src/main.cpp
+    src/Game.cpp
     src/core/Window.cpp
     src/core/Application.cpp
     src/renderer/Shader.cpp
