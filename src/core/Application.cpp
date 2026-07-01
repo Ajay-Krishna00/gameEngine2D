@@ -6,6 +6,7 @@ Application::Application() : m_window("engine2d", 1280, 720) {}
 
 int Application::run() {
     if (!m_window.good()) return 1;
+    m_debugUI.init(m_window.sdl(), m_window.glContext());
 
     Clock  clock;
     double accumulator = 0.0;
@@ -25,7 +26,11 @@ int Application::run() {
         }
 
         pollEvents();
-        m_input.update();   // snapshot keyboard/mouse for this frame
+
+        // Snapshot input only on frames that will run a fixed step. Above
+        // 60 FPS many frames run zero steps; snapshotting every frame would
+        // burn isPressed()/isReleased() edges before onUpdate() sees them.
+        if (accumulator >= FIXED_DT) m_input.update();
 
         while (accumulator >= FIXED_DT) {
             onUpdate(static_cast<float>(FIXED_DT));
@@ -35,6 +40,11 @@ int Application::run() {
         glClearColor(0.39f, 0.58f, 0.93f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         onRender();
+
+        m_debugUI.beginFrame();
+        onGui();
+        m_debugUI.endFrame();   // ImGui draws on top of the scene
+
         m_window.swapBuffers();
     }
     return 0;
@@ -43,6 +53,7 @@ int Application::run() {
 void Application::pollEvents() {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+        m_debugUI.processEvent(e);
         if (e.type == SDL_QUIT) m_running = false;
         if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) m_running = false;
         if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {

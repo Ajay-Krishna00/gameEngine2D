@@ -4,6 +4,11 @@
 
 Window::Window(const std::string& title, int width, int height)
     : m_width(width), m_height(height) {
+#ifdef SDL_HINT_WINDOWS_DPI_AWARENESS
+    // Without this, Windows display scaling (e.g. 125%) bitmap-stretches the
+    // window, so a 1280x720 window can overflow a small laptop screen.
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+#endif
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);

@@ -9,6 +9,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # lets VS Code IntelliSense find headers
 find_package(SDL2 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm  CONFIG REQUIRED)
+# Dear ImGui core + OpenGL3 backend from vcpkg. The SDL2 backend was dropped
+# from the vcpkg port, so its two official files are vendored in third_party/.
+find_package(imgui CONFIG REQUIRED)
 find_path(STB_INCLUDE_DIRS "stb_image.h")   # stb is header-only
 
 # ---- the engine executable ----
@@ -18,16 +21,21 @@ add_executable(engine2d
     src/Game.cpp
     src/core/Window.cpp
     src/core/Application.cpp
+    src/core/DebugUI.cpp
     src/renderer/Shader.cpp
     src/renderer/Texture.cpp
     src/renderer/Camera2D.cpp
     src/renderer/SpriteBatch.cpp
     src/renderer/ResourceManager.cpp
     src/physics/PhysicsSystem.cpp
+    src/game/ArenaScene.cpp
+    src/game/BreakoutScene.cpp
+    third_party/imgui/imgui_impl_sdl2.cpp
 )
 
 target_include_directories(engine2d PRIVATE
     src
+    third_party/imgui
     ${STB_INCLUDE_DIRS}
 )
 
@@ -36,6 +44,7 @@ target_link_libraries(engine2d PRIVATE
     SDL2::SDL2main
     glad::glad
     glm::glm
+    imgui::imgui
 )
 
 # ---- copy the assets/ folder next to the .exe after every build ----

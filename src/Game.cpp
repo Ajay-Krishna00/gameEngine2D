@@ -1,81 +1,73 @@
 #include "Game.h"
-#include "ecs/Components.h"
-#include "ecs/Systems.h"
+#include "game/ArenaScene.h"
+#include "game/BreakoutScene.h"
+#include <imgui.h>
 #include <cstdio>
 
 namespace {
-// Tiny deterministic LCG so the scene is the same every run (no <random> needed).
-struct Rng {
-    std::uint32_t s = 0x12345678u;
-    float next(float lo, float hi) {
-        s = s * 1664525u + 1013904223u;
-        float t = (s >> 8) / 16777216.0f;   // [0,1)
-        return lo + t * (hi - lo);
-    }
-};
-
-// Arena (world units). Walls form a closed box centered on the origin.
-constexpr float AW = 900.0f;   // half-width
-constexpr float AH = 560.0f;   // half-height
-constexpr float WT = 30.0f;    // wall thickness (half)
-} // namespace
+constexpr const char* SCENE_NAMES[] = { "Arena sandbox", "Breakout" };
+constexpr int SCENE_COUNT = 2;
+}
 
 Game::Game() {
     m_tex = &m_resources.texture("assets/textures/sprite.png");
-    Rng rng;
+    setScene(0);
+}
 
-    auto spawnWall = [&](glm::vec2 pos, glm::vec2 half) {
-        Entity w = m_reg.create();
-        m_reg.add(w, Transform{ pos, 0.0f, {1, 1} });
-        m_reg.add(w, SpriteComp{ half * 2.0f, {0.30f, 0.32f, 0.38f, 1.0f} });
-        m_reg.add(w, Collider{ half, /*isStatic*/ true, 0.0f });
-    };
-    spawnWall({ 0,  AH + WT }, { AW + WT, WT });   // top
-    spawnWall({ 0, -AH - WT }, { AW + WT, WT });   // bottom
-    spawnWall({ -AW - WT, 0 }, { WT, AH });        // left
-    spawnWall({  AW + WT, 0 }, { WT, AH });        // right
-
-    // A field of dynamic crates that bounce off the walls and each other.
-    const int COLS = 34, ROWS = 17;          // 578 colliding bodies
-    const float SPACING = 46.0f;
-    const float x0 = -(COLS - 1) * SPACING * 0.5f;
-    const float y0 = -(ROWS - 1) * SPACING * 0.5f;
-    for (int r = 0; r < ROWS; ++r) {
-        for (int c = 0; c < COLS; ++c) {
-            Entity e = m_reg.create();
-            m_reg.add(e, Transform{ { x0 + c * SPACING, y0 + r * SPACING }, 0.0f, {1, 1} });
-            m_reg.add(e, Velocity{ { rng.next(-120, 120), rng.next(-120, 120) } });
-            m_reg.add(e, SpriteComp{ {28, 28},
-                       { rng.next(0.4f, 1.0f), rng.next(0.4f, 1.0f), rng.next(0.5f, 1.0f), 1.0f } });
-            m_reg.add(e, Collider{ {14, 14}, /*isStatic*/ false, /*restitution*/ 0.95f });
-        }
-    }
-
-    // The player: WASD-driven, collides with everything, camera follows it.
-    m_player = m_reg.create();
-    m_reg.add(m_player, Transform{ {0, 0}, 0.0f, {1, 1} });
-    m_reg.add(m_player, Velocity{});
-    m_reg.add(m_player, SpriteComp{ {40, 40}, {1.0f, 0.85f, 0.2f, 1.0f} });
-    m_reg.add(m_player, Player{ 320.0f });
-    m_reg.add(m_player, Collider{ {20, 20}, /*isStatic*/ false, /*restitution*/ 0.0f });
+void Game::setScene(int idx) {
+    m_sceneIdx = idx;
+    m_scene = (idx == 0) ? std::unique_ptr<Scene>(std::make_unique<ArenaScene>())
+                         : std::unique_ptr<Scene>(std::make_unique<BreakoutScene>());
+    m_camera.position = {0.0f, 0.0f};
+    m_camera.zoom = 1.0f;
 }
 
 void Game::onUpdate(float dt) {
-    playerControlSystem(m_reg, input());
-    movementSystem(m_reg, dt);     // integrate positions
-    m_physics.step(m_reg);         // detect + resolve collisions (fixed step)
+    // While ImGui owns the keyboard (typing in the panel), feed the scene a
+    // blank input snapshot so the player/paddle doesn't react.
+    static const Input s_noInput;
+    const bool captured = debugUI().wantsKeyboard();
+    const Input& in = captured ? s_noInput : input();
 
-    if (Transform* t = m_reg.get<Transform>(m_player))
-        m_camera.position = t->position;
+    if (!captured) {
+        if (input().isPressed(SDL_SCANCODE_1)) setScene(0);
+        if (input().isPressed(SDL_SCANCODE_2)) setScene(1);
+        if (input().isPressed(SDL_SCANCODE_F1)) m_showPanel = !m_showPanel;
+    }
+
+    m_scene->update(dt, in);
+    m_camera.position = m_scene->cameraFocus();
 }
 
 void Game::onRender() {
     m_camera.setViewport((float)window().width(), (float)window().height());
     m_batch.begin(m_camera.viewProjection());
-    renderSystem(m_reg, m_batch, *m_tex);
+    m_scene->render(m_batch, *m_tex);
     m_batch.end();
 
     updateTitle();
+}
+
+void Game::onGui() {
+    if (!m_showPanel) return;
+
+    ImGui::SetNextWindowPos({10, 10}, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize({330, 0}, ImGuiCond_FirstUseEver);
+    ImGui::Begin("engine2d debug (F1 to hide)");
+
+    ImGui::Text("%.0f FPS (%.2f ms)", fps(), fps() > 0.0f ? 1000.0f / fps() : 0.0f);
+    ImGui::Text("entities: %zu   draw calls: %d   quads: %d",
+                m_scene->registry().aliveCount(), m_batch.drawCalls(), m_batch.quadsDrawn());
+
+    int idx = m_sceneIdx;
+    if (ImGui::Combo("scene (1/2)", &idx, SCENE_NAMES, SCENE_COUNT) && idx != m_sceneIdx)
+        setScene(idx);
+    ImGui::SliderFloat("camera zoom", &m_camera.zoom, 0.25f, 3.0f, "%.2f");
+
+    ImGui::Separator();
+    m_scene->onGui();
+
+    ImGui::End();
 }
 
 void Game::updateTitle() {
@@ -85,8 +77,8 @@ void Game::updateTitle() {
 
     char buf[256];
     std::snprintf(buf, sizeof(buf),
-        "engine2d  |  %.0f FPS  |  entities %zu  |  draw calls %d  |  quads %d  |  col-checks %d / resolved %d",
-        fps(), m_reg.aliveCount(), m_batch.drawCalls(), m_batch.quadsDrawn(),
-        m_physics.narrowChecks(), m_physics.resolved());
+        "engine2d - %s  |  %.0f FPS  |  entities %zu  |  draw calls %d  |  quads %d",
+        m_scene->name(), fps(), m_scene->registry().aliveCount(),
+        m_batch.drawCalls(), m_batch.quadsDrawn());
     window().setTitle(buf);
 }

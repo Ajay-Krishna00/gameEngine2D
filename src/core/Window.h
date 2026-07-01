@@ -18,7 +18,8 @@ public:
 
     void setTitle(const std::string& title);
 
-    SDL_Window* sdl() const { return m_window; }
+    SDL_Window*   sdl()       const { return m_window; }
+    SDL_GLContext glContext() const { return m_context; }
 
 private:
     SDL_Window*   m_window  = nullptr;

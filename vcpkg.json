@@ -6,6 +6,10 @@
     "sdl2",
     "glad",
     "glm",
-    "stb"
+    "stb",
+    {
+      "name": "imgui",
+      "features": ["opengl3-binding"]
+    }
   ]
 }

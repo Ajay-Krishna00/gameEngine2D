@@ -321,14 +321,15 @@ through at speed (clamp or sub-step).
 
 Pick from these in priority order; each is a visible win:
 
-1. **Dear ImGui debug/editor panel** — add `imgui` to `vcpkg.json`, wire the SDL2 +
-   OpenGL3 backends. A live panel to spawn entities, tweak values, show fps/entity
-   count. This *reads* as "engine," screenshots great.
-2. **A tiny demo game built on the engine** — e.g. an asteroids/brick-breaker. Proves
-   the engine is actually *usable*, not just a tech demo. This is the difference
-   between "I wrote rendering code" and "I built an engine and shipped a game on it."
-3. **Asset/resource manager** — load + cache textures/shaders by name; don't reload
-   duplicates.
+1. ✅ **Dear ImGui debug/editor panel** — done (Phase 8): `imgui[opengl3-binding]`
+   via vcpkg + the vendored SDL2 backend in `third_party/imgui/`, wrapped in
+   `core/DebugUI`. Live panel with fps/entity/draw-call stats, scene switcher,
+   camera zoom, crate spawner, and Breakout tuning.
+2. ✅ **A tiny demo game built on the engine** — done (Phase 8): Breakout in
+   `game/BreakoutScene.cpp` — paddle, angled bounces, bricks, score, lives,
+   win/lose — switchable at runtime against the arena sandbox via `game/Scene`.
+3. ✅ **Asset/resource manager** — done (Phase 7): load + cache textures/shaders
+   by name; don't reload duplicates.
 4. **Simple scene format** — load entities from a JSON file (add `nlohmann-json` via
    vcpkg). Shows data-driven design.
 5. **Text rendering** — bitmap font or `stb_truetype` for a real score/HUD.
